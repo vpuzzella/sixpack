@@ -41,6 +41,13 @@ class Sixpack(object):
             Rule('/favicon.ico', endpoint='favicon')
         ])
 
+    def set_redis_prefix(self, request):
+      customer_id = (request.args.get('customer_id') or "").strip() or None
+      product_id  = (request.args.get('product_id') or "").strip() or None
+      if customer_id is None or product_id is None:
+        raise ValueError('missing arguments (customer_id and product_id are required)')
+      db.DEFAULT_PREFIX = "{0}:{1}:{2}".format(db.cfg.get('redis_prefix'), customer_id, product_id)
+
     def __call__(self, environ, start_response):
         return self.wsgi_app(environ, start_response)
 
@@ -53,7 +60,14 @@ class Sixpack(object):
         adapter = self.url_map.bind_to_environ(request.environ)
         try:
             endpoint, values = adapter.match()
+
+            if endpoint == 'participate' or endpoint == 'convert' or endpoint == 'experiment_details':
+                self.set_redis_prefix(request)
+
             return getattr(self, 'on_' + endpoint)(request, **values)
+
+        except ValueError as e:
+          return json_error({'message': str(e)}, request, 400)
         except NotFound:
             return json_error({"message": "not found"}, request, 404)
         except HTTPException:
