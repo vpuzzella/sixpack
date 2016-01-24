@@ -45,11 +45,14 @@ def status():
 
 @app.route("/")
 def hello():
+    return active()
+
+@app.route('/active')
+def active():
     set_redis_prefix()
     experiments = Experiment.all(exclude_archived=True, redis=db.REDIS)
     experiments = [exp.name for exp in experiments]
     return render_template('dashboard.html', experiments=experiments, page='home')
-
 
 @app.route('/archived')
 def archived():
