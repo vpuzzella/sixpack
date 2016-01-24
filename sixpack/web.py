@@ -45,6 +45,7 @@ def status():
 
 @app.route("/")
 def hello():
+    set_redis_prefix()
     experiments = Experiment.all(exclude_archived=True, redis=db.REDIS)
     experiments = [exp.name for exp in experiments]
     return render_template('dashboard.html', experiments=experiments, page='home')
@@ -52,6 +53,7 @@ def hello():
 
 @app.route('/archived')
 def archived():
+    set_redis_prefix()
     experiments = Experiment.all(exclude_archived=False, redis=db.REDIS)
     experiments = [exp.name for exp in experiments if exp.is_archived()]
     return render_template('dashboard.html', experiments=experiments, page='archived')
@@ -59,6 +61,7 @@ def archived():
 
 @app.route('/experiments.json')
 def experiment_list():
+    set_redis_prefix()
     experiments = Experiment.all(redis=db.REDIS)
     period = determine_period()
     experiments = [simple_markdown(exp.objectify_by_period(period)) for exp in experiments]
@@ -168,6 +171,7 @@ def internal_server_error(e):
 
 def find_or_404(experiment_name):
     try:
+        set_redis_prefix()
         experiment_name = url=urllib.unquote(experiment_name).decode('utf8') 
         exp = Experiment.find(experiment_name, db.REDIS)
         if request.args.get('kpi'):
@@ -190,6 +194,13 @@ def simple_markdown(experiment):
     if description and description != '':
         experiment['pretty_description'] = markdown(description)
     return experiment
+
+def set_redis_prefix():
+    customer_id = (request.args.get('customer_id') or "").strip() or None
+    product_id  = (request.args.get('product_id') or "").strip() or None
+    if customer_id is None or product_id is None:
+        raise ValueError('missing arguments (customer_id and product_id are required)')
+    db.DEFAULT_PREFIX = "{0}:{1}:{2}".format(db.cfg.get('redis_prefix'), customer_id, product_id)
 
 app.secret_key = cfg.get('secret_key')
 app.jinja_env.filters['number_to_percent'] = utils.number_to_percent
