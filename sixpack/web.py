@@ -1,6 +1,6 @@
 import urllib
 
-from flask import Flask
+from flask import Flask, session
 from flask import render_template, abort, request, url_for, redirect, jsonify, make_response
 from flask.ext.seasurf import SeaSurf
 from flask.ext.assets import Environment, Bundle
@@ -101,7 +101,7 @@ def export(experiment_name):
 
 
 # Set winner for an experiment
-@app.route("/experiments/<experiment_name>/winner/", methods=['POST'])
+@app.route("/experiments/<experiment_name>/winner", methods=['POST'])
 def set_winner(experiment_name):
     experiment = find_or_404(experiment_name)
     experiment.set_winner(request.form['alternative_name'])
@@ -110,7 +110,7 @@ def set_winner(experiment_name):
 
 
 # Reset experiment
-@app.route("/experiments/<experiment_name>/reset/", methods=['POST'])
+@app.route("/experiments/<experiment_name>/reset", methods=['POST'])
 def reset_experiment(experiment_name):
     experiment = find_or_404(experiment_name)
     experiment.reset()
@@ -119,7 +119,7 @@ def reset_experiment(experiment_name):
 
 
 # Reset experiment winner
-@app.route("/experiments/<experiment_name>/winner/reset/", methods=['POST'])
+@app.route("/experiments/<experiment_name>/winner/reset", methods=['POST'])
 def reset_winner(experiment_name):
     experiment = find_or_404(experiment_name)
     experiment.reset_winner()
@@ -128,7 +128,7 @@ def reset_winner(experiment_name):
 
 
 # Delete experiment
-@app.route("/experiments/<experiment_name>/delete/", methods=['POST'])
+@app.route("/experiments/<experiment_name>/delete", methods=['POST'])
 def delete_experiment(experiment_name):
     experiment = find_or_404(experiment_name)
     experiment.delete()
@@ -180,8 +180,8 @@ def find_or_404(experiment_name):
         if request.args.get('kpi'):
             exp.set_kpi(request.args.get('kpi'))
         return exp
-    except ValueError:
-        abort(404)
+    except ValueError as e:
+        abort(e, 404)
 
 
 def determine_period():
@@ -199,8 +199,8 @@ def simple_markdown(experiment):
     return experiment
 
 def set_redis_prefix():
-    customer_id = (request.args.get('customer_id') or "").strip() or None
-    product_id  = (request.args.get('product_id') or "").strip() or None
+    customer_id = session['customer_id'] = (request.args.get('customer_id') or "").strip() or session['customer_id']
+    product_id = session['product_id']  = (request.args.get('product_id') or "").strip() or session['product_id']
     if customer_id is None or product_id is None:
         raise ValueError('missing arguments (customer_id and product_id are required)')
     db.DEFAULT_PREFIX = "{0}:{1}:{2}".format(db.cfg.get('redis_prefix'), customer_id, product_id)
